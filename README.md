@@ -71,7 +71,9 @@ Eagle標準機能で評価順に並べたあと、手動モードへ切り替え
 
 このプラグインは無料で公開しています。不具合報告や機能提案は[GitHub Issues](https://github.com/harine031/eagle-rating-order-plugin/issues)へお願いします。
 
-任意の支援受付は現在準備中です。
+もしこのプラグインが役に立ったら、コーヒー1杯分の支援をいただけると開発継続の励みになります ☕
+
+[Ko-fiで開発を支援する](https://ko-fi.com/harine031)
 
 ## ライセンス
 
