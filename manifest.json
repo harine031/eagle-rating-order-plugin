@@ -1,0 +1,19 @@
+{
+  "id": "rating-order-board",
+  "version": "1.1.1",
+  "platform": "all",
+  "arch": "all",
+  "name": "Flexible Sort Board",
+  "logo": "/logo.png",
+  "keywords": ["sort", "custom order", "manual order", "image organization"],
+  "devTools": false,
+  "main": {
+    "url": "index.html",
+    "width": 960,
+    "height": 720,
+    "minWidth": 640,
+    "minHeight": 480,
+    "resizable": true,
+    "multiple": false
+  }
+}

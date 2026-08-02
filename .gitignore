@@ -1,0 +1,16 @@
+# Local AI and agent configuration
+.agents/
+.claude/
+.codex/
+shared/
+AGENTS.md
+ANTIGRAVITY.md
+CLAUDE.md
+CODEX.md
+
+# Generated publication files
+publish/
+
+# OS files
+.DS_Store
+Thumbs.db
