@@ -1,5 +1,22 @@
 # 開発ログ
 
+## [2026-08-02] - GitHub公開とv1.1.1 Release作成
+
+### 追加・実装 (Added/Implemented)
+- プロジェクトを独立したGitリポジトリとして初期化し、GitHubの公開リポジトリ `harine031/eagle-rating-order-plugin` へ公開した。
+- MIT Licenseを追加した。
+- GitHub Release `v1.1.1`を作成し、`Flexible-Sort-Board-1.1.1.eagleplugin`を無料ダウンロード用アセットとして添付した。
+- READMEへGitHub Releasesからの導入手順、不具合報告先、ライセンス、支援受付準備中の案内を追加した。
+
+### 変更・修正 (Changed/Fixed)
+- AI用ローカル設定と生成済み公開物の重複を`.gitignore`で除外し、ソース、説明、ライセンス、開発ログだけをGit管理対象にした。
+- GitHub Sponsorsが未有効のため、無効な支援リンクは掲載せず、Ko-fiを含む支援先の有効化後にFUNDING設定を追加する方針とした。
+
+### 検証 (Validation)
+- ルートと公開用コピーの`index.js`、`manifest.json`、`logo.png`が一致することをSHA-256で確認した。
+- ルートと公開用コピーのJavaScript構文チェックに合格した。
+- Releaseアセットが公開状態で、GitHub APIからダウンロード数を取得できることを確認した。
+
 ## [2026-07-26] - BOOTH公開用ZIPと商品説明の作成
 
 ### 🚀 追加・実装
