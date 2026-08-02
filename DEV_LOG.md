@@ -7,10 +7,11 @@
 - MIT Licenseを追加した。
 - GitHub Release `v1.1.1`を作成し、`Flexible-Sort-Board-1.1.1.eagleplugin`を無料ダウンロード用アセットとして添付した。
 - READMEへGitHub Releasesからの導入手順、不具合報告先、ライセンス、支援受付準備中の案内を追加した。
+- Ko-fiの公開ページ `https://ko-fi.com/harine031` をREADMEとGitHub Sponsorボタンへ追加した。
 
 ### 変更・修正 (Changed/Fixed)
 - AI用ローカル設定と生成済み公開物の重複を`.gitignore`で除外し、ソース、説明、ライセンス、開発ログだけをGit管理対象にした。
-- GitHub Sponsorsが未有効のため、無効な支援リンクは掲載せず、Ko-fiを含む支援先の有効化後にFUNDING設定を追加する方針とした。
+- GitHub Sponsorsは未有効のため掲載せず、先にKo-fiで任意支援を受け付ける構成とした。
 
 ### 検証 (Validation)
 - ルートと公開用コピーの`index.js`、`manifest.json`、`logo.png`が一致することをSHA-256で確認した。
