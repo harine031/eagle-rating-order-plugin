@@ -1,5 +1,15 @@
 # 開発ログ
 
+## [2026-08-09] - v1.2.0 Releaseとnote記事の公開
+
+### 追加・実装 (Added/Implemented)
+- GitHub Release `v1.2.0`を公開し、`Flexible-Sort-Board-1.2.0.eagleplugin`を添付した。
+- note公開記事へv1.2.0の保存機能、PNG情報削除の任意化、リネーム進捗表示の更新内容を追記した。
+
+### 検証 (Validation)
+- GitHub Releaseが公開状態で、添付アセットのSHA-256が作成済みパッケージと一致することを確認した。
+- note公開記事でv1.2.0更新文が表示されることを確認した。
+
 ## [2026-08-09] - v1.2.0 公開準備
 
 ### 追加・実装 (Added/Implemented)
