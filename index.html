@@ -36,6 +36,10 @@
     .dangerButton { color: #fff; background: #8b2c2c; border-color: #b94a48; }
     select, input { padding: 7px; background: #303134; color: #f1f3f4; border: 1px solid #5f6368; }
     #status { margin-left: auto; color: #bdc1c6; font-size: 13px; }
+    #renameProgressContainer { flex-basis: 100%; align-items: center; gap: 8px; }
+    #renameProgressContainer:not([hidden]) { display: flex; }
+    #renameProgress { flex: 1; min-width: 180px; height: 14px; accent-color: #8ab4f8; }
+    #renameProgressText { min-width: 180px; color: #bdc1c6; font-size: 12px; text-align: right; }
     #list { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile-size, 180px), 1fr)); gap: 12px; }
     .item { position: relative; padding: 8px; background: #303134; border: 1px solid transparent; border-radius: 6px; cursor: grab; }
     .item.selected { border-color: #8ab4f8; box-shadow: 0 0 0 2px rgba(138, 180, 248, .35); }
@@ -135,12 +139,17 @@
     <button id="trashSelected" class="dangerButton" title="Deleteキーでも実行">選択をゴミ箱へ</button>
     <label>桁数 <input id="renameDigits" type="number" min="1" max="8" value="3"></label>
     <label>後半の名前 <input id="renameBaseName" placeholder="例：name" size="18"></label>
+    <label title="PNGのテキスト・EXIF情報を削除します。ファイル差し替えのため時間がかかる場合があります"><input id="removePngMetadataOption" type="checkbox"> PNG情報を削除</label>
     <button id="renameSequential">現在の順番で連番リネーム</button>
     <button id="renameSelected">選択画像を連番リネーム</button>
     <input id="tagInput" placeholder="タグ名" size="10">
     <button id="addTag">タグ追加</button>
     <button id="removeTag">タグ削除</button>
     <span id="status">起動中…</span>
+    <div id="renameProgressContainer" hidden>
+      <progress id="renameProgress" value="0" max="1"></progress>
+      <span id="renameProgressText"></span>
+    </div>
   </header>
   <div class="hint">例：「name」と入力すると、001_name、002_name、003_name…になります。</div>
   <main id="list"></main>

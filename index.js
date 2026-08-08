@@ -15,9 +15,15 @@
   const selectedIds = new Set();
   const tileSizeInput = document.querySelector("#tileSize");
   const tileSizeValue = document.querySelector("#tileSizeValue");
+  const renameProgressContainer = document.querySelector("#renameProgressContainer");
+  const renameProgress = document.querySelector("#renameProgress");
+  const renameProgressText = document.querySelector("#renameProgressText");
+  const renameBaseNameInput = document.querySelector("#renameBaseName");
+  const removePngMetadataOption = document.querySelector("#removePngMetadataOption");
   let previewZoom = 1;
   let previewRotation = 0;
   let slideshowTimer = null;
+  let renameInProgress = false;
 
   function applyTileSize(value) {
     const size = Math.max(100, Math.min(800, Number(value) || 180));
@@ -30,6 +36,39 @@
 
   const setStatus = (message) => { status.textContent = message; };
   const getRating = (item) => Number(item.star || 0);
+
+  function setRenameControlsDisabled(disabled) {
+    document.querySelector("#renameSequential").disabled = disabled;
+    document.querySelector("#renameSelected").disabled = disabled;
+    document.querySelector("#renameDigits").disabled = disabled;
+    renameBaseNameInput.disabled = disabled;
+    removePngMetadataOption.disabled = disabled;
+  }
+
+  function updateRenameProgress(current, total, message) {
+    renameProgressContainer.hidden = false;
+    renameProgress.max = Math.max(1, total);
+    renameProgress.value = Math.max(0, Math.min(current, total));
+    renameProgressText.textContent = message;
+  }
+
+  async function nextPaint() {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  async function withTimeout(promise, milliseconds, message) {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(message)), milliseconds);
+        })
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function getStorageKey(folder) {
     let library = {};
@@ -45,7 +84,15 @@
   function writeOrder() {
     const ids = state.allItems.map((item) => item.id);
     localStorage.setItem(state.storageKey, JSON.stringify(ids));
+    localStorage.setItem(`${state.storageKey}:sort-mode`, document.querySelector("#sortSelect").value);
     setStatus(`順番を保存しました（${ids.length}件）`);
+  }
+
+  function readSortMode() {
+    const savedMode = localStorage.getItem(`${state.storageKey}:sort-mode`);
+    const option = [...document.querySelector("#sortSelect").options]
+      .find((candidate) => candidate.value === savedMode);
+    return option ? option.value : null;
   }
 
   function updateRatingButtons() {
@@ -234,6 +281,77 @@
     return [...saved, ...newItems];
   }
 
+  function isPngItem(item) {
+    return String(item.ext || "").replace(/^\./, "").toLowerCase() === "png";
+  }
+
+  function stripPngMetadata(buffer) {
+    const BufferApi = require("buffer").Buffer;
+    const bytes = BufferApi.from(buffer);
+    const signature = BufferApi.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    if (bytes.length < signature.length || !bytes.subarray(0, signature.length).equals(signature)) {
+      throw new Error("PNGファイルとして読み込めませんでした");
+    }
+
+    const metadataChunks = new Set(["tEXt", "zTXt", "iTXt", "eXIf"]);
+    const chunks = [bytes.subarray(0, signature.length)];
+    let offset = signature.length;
+    let removed = false;
+
+    while (offset < bytes.length) {
+      if (offset + 12 > bytes.length) throw new Error("PNGチャンクが壊れています");
+      const length = bytes.readUInt32BE(offset);
+      const end = offset + 12 + length;
+      if (end > bytes.length) throw new Error("PNGチャンクが壊れています");
+      const type = bytes.toString("ascii", offset + 4, offset + 8);
+      if (metadataChunks.has(type)) removed = true;
+      else chunks.push(bytes.subarray(offset, end));
+      offset = end;
+      if (type === "IEND") break;
+    }
+
+    if (offset !== bytes.length) throw new Error("PNGの終端を確認できませんでした");
+    return { buffer: BufferApi.concat(chunks), removed };
+  }
+
+  async function removePngMetadata(item) {
+    if (!isPngItem(item)) return false;
+    if (!item.filePath || typeof item.replaceFile !== "function") {
+      throw new Error(`${item.name || "PNG画像"}の元ファイルを差し替えられません`);
+    }
+
+    const fs = require("fs").promises;
+    const path = require("path");
+    const sourcePath = item.filePath;
+    const source = await fs.readFile(sourcePath);
+    const result = stripPngMetadata(source);
+    if (!result.removed) return false;
+
+    const tempPath = path.join(
+      eagle.os.tmpdir(),
+      `eagle-rating-order-${item.id}-${Date.now()}.png`
+    );
+    let replacePromise = null;
+    try {
+      await fs.writeFile(tempPath, result.buffer);
+      replacePromise = Promise.resolve(item.replaceFile(tempPath));
+      replacePromise.finally(() => fs.rm(tempPath, { force: true })).catch(() => {});
+      await withTimeout(
+        replacePromise,
+        60000,
+        `${item.name || "PNG画像"}のPNG情報削除が60秒以内に完了しませんでした`
+      );
+      const replacedFile = await fs.readFile(sourcePath);
+      if (stripPngMetadata(replacedFile).removed) {
+        throw new Error("PNGファイルの差し替え後も埋め込み情報が残っています");
+      }
+      return true;
+    } catch (error) {
+      if (!replacePromise) await fs.rm(tempPath, { force: true });
+      throw error;
+    }
+  }
+
   function render() {
     list.replaceChildren();
     if (!state.items.length) {
@@ -327,10 +445,14 @@
       state.folder = folders[0];
       state.storageKey = await getStorageKey(state.folder);
       applyTileSize(localStorage.getItem(`${state.storageKey}:tile-size`) || tileSizeInput.value);
+      renameBaseNameInput.value = localStorage.getItem(`${state.storageKey}:rename-base-name`) || "";
       const items = await eagle.item.get({ folders: [state.folder.id] });
       const savedIds = readOrder();
-      state.allItems = mergeSavedOrder(items, savedIds);
-      document.querySelector("#sortSelect").value = savedIds.length ? "manual" : "rating-desc";
+      const savedSortMode = readSortMode();
+      const sortMode = savedSortMode || (savedIds.length ? "manual" : "rating-desc");
+      document.querySelector("#sortSelect").value = sortMode;
+      state.allItems = sortMode === "manual" ? mergeSavedOrder(items, savedIds) : [...items];
+      sortItems(sortMode);
       applyRatingFilter();
       render();
       setStatus(`${state.folder.name}：${state.items.length}/${state.allItems.length}件`);
@@ -410,25 +532,73 @@
   }
 
   async function renameItems(targets, label) {
+    if (renameInProgress) {
+      setStatus("別のリネーム処理が進行中です");
+      return;
+    }
     if (!targets.length) {
       setStatus("画像を選択してください");
       return;
     }
     const digits = Math.max(1, Math.min(8, Number(document.querySelector("#renameDigits").value) || 3));
-    const requestedBaseName = document.querySelector("#renameBaseName").value.trim();
+    const requestedBaseName = renameBaseNameInput.value.trim();
     const prefixPattern = /^\d{1,8}[_\-\s]/;
-    if (!window.confirm(`${targets.length}件を${label}で連番リネームします。実行しますか？`)) return;
-    setStatus("リネーム中…");
-    for (let index = 0; index < targets.length; index += 1) {
-      const item = targets[index];
-      const oldName = String(item.name || "").replace(prefixPattern, "");
-      const number = String(index + 1).padStart(digits, "0");
-      item.name = `${number}_${requestedBaseName || oldName}`;
-      await item.save();
+    const removeMetadata = removePngMetadataOption.checked;
+    const pngCount = targets.filter(isPngItem).length;
+    const metadataMessage = removeMetadata && pngCount
+      ? `\nPNG ${pngCount}件の埋め込み情報も削除します（時間がかかる場合があります）。`
+      : "\nPNGの埋め込み情報は削除しません。";
+    if (!window.confirm(`${targets.length}件を${label}で連番リネームします。${metadataMessage}\n実行しますか？`)) return;
+
+    renameInProgress = true;
+    setRenameControlsDisabled(true);
+    setStatus(`リネーム中… 0/${targets.length}`);
+    updateRenameProgress(0, targets.length, `0 / ${targets.length}`);
+    let cleanedPngCount = 0;
+    let completedCount = 0;
+    try {
+      for (let index = 0; index < targets.length; index += 1) {
+        const item = targets[index];
+        const oldName = String(item.name || "").replace(prefixPattern, "");
+        const number = String(index + 1).padStart(digits, "0");
+        const displayName = item.name || "名称なし";
+
+        updateRenameProgress(completedCount, targets.length, `${index + 1}/${targets.length}：${displayName}`);
+        setStatus(removeMetadata && isPngItem(item)
+          ? `PNG情報を確認中… ${index + 1}/${targets.length}`
+          : `リネーム中… ${index + 1}/${targets.length}`);
+        await nextPaint();
+
+        if (removeMetadata && await removePngMetadata(item)) cleanedPngCount += 1;
+        item.name = `${number}_${requestedBaseName || oldName}`;
+        await withTimeout(
+          item.save(),
+          30000,
+          `${displayName}の名前保存が30秒以内に完了しませんでした`
+        );
+        completedCount = index + 1;
+        updateRenameProgress(completedCount, targets.length, `${completedCount} / ${targets.length}`);
+      }
+
+      const selectedSort = document.querySelector("#sortSelect").value;
+      if (selectedSort !== "manual") {
+        sortItems(selectedSort);
+        applyRatingFilter();
+      }
+      render();
+      writeOrder();
+      const cleanedMessage = removeMetadata ? `、PNG情報を${cleanedPngCount}件削除` : "";
+      updateRenameProgress(targets.length, targets.length, `完了：${targets.length} / ${targets.length}`);
+      setStatus(`${label}の連番リネーム完了（${targets.length}件${cleanedMessage}）`);
+    } catch (error) {
+      render();
+      writeOrder();
+      updateRenameProgress(completedCount, targets.length, `停止：${completedCount} / ${targets.length}`);
+      setStatus(`リネームを停止しました：${error.message || "不明なエラー"}`);
+    } finally {
+      renameInProgress = false;
+      setRenameControlsDisabled(false);
     }
-    render();
-    writeOrder();
-    setStatus(`${label}の連番リネーム完了（${targets.length}件）`);
   }
 
   async function trashUnrated() {
@@ -496,6 +666,11 @@
   document.querySelector("#reload").addEventListener("click", loadItems);
   document.querySelector("#sortSelect").addEventListener("change", applySelectedSort);
   tileSizeInput.addEventListener("input", (event) => applyTileSize(event.target.value));
+  renameBaseNameInput.addEventListener("input", () => {
+    if (state.storageKey) {
+      localStorage.setItem(`${state.storageKey}:rename-base-name`, renameBaseNameInput.value);
+    }
+  });
   document.querySelector("#ratingFilter").addEventListener("change", () => {
     applyRatingFilter();
     render();
